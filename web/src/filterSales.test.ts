@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterSales, summariseFeatures, type SaleFeature } from "./filterSales";
+import { filterSales, summariseFeatures, uniqueYears, type SaleFeature } from "./filterSales";
 
 function feature(partial: Partial<SaleFeature["properties"]>): SaleFeature {
   return {
@@ -33,18 +33,39 @@ describe("filterSales", () => {
   ];
 
   it("keeps all rows when filters are open", () => {
-    expect(filterSales(features, { types: [], beds: "any", area: "any" })).toHaveLength(3);
+    expect(filterSales(features, { types: [], years: [], beds: "any", area: "any" })).toHaveLength(3);
   });
 
   it("filters by type and beds without mutating source", () => {
-    const filtered = filterSales(features, { types: ["Semi-D"], beds: 4, area: "any" });
+    const filtered = filterSales(features, { types: ["Semi-D"], years: [], beds: 4, area: "any" });
     expect(filtered.map((item) => item.properties.ppr_id)).toEqual(["1"]);
     expect(features).toHaveLength(3);
   });
 
   it("filters floor area bands", () => {
-    const small = filterSales(features, { types: [], beds: "any", area: "lt75" });
+    const small = filterSales(features, { types: [], years: [], beds: "any", area: "lt75" });
     expect(small[0].properties.property_type).toBe("Apartment");
+  });
+
+  it("keeps sales in any of the selected years", () => {
+    const dated = [
+      feature({ ppr_id: "1", sale_date: "2024-07-14" }),
+      feature({ ppr_id: "2", sale_date: "2023-01-02" }),
+      feature({ ppr_id: "3", sale_date: "2022-11-30" }),
+      feature({ ppr_id: "4", sale_date: null }),
+    ];
+    const filtered = filterSales(dated, { types: [], years: [2024, 2022], beds: "any", area: "any" });
+    expect(filtered.map((item) => item.properties.ppr_id)).toEqual(["1", "3"]);
+  });
+
+  it("lists distinct years newest first", () => {
+    const dated = [
+      feature({ sale_date: "2022-11-30" }),
+      feature({ ppr_id: "2", sale_date: "2024-07-14" }),
+      feature({ ppr_id: "3", sale_date: "2024-01-01" }),
+      feature({ ppr_id: "4", sale_date: null }),
+    ];
+    expect(uniqueYears(dated)).toEqual([2024, 2022]);
   });
 });
 
@@ -64,7 +85,7 @@ describe("summariseFeatures", () => {
   });
 
   it("tracks the filtered subset", () => {
-    const visible = filterSales(features, { types: ["Apartment"], beds: "any", area: "any" });
+    const visible = filterSales(features, { types: ["Apartment"], years: [], beds: "any", area: "any" });
     expect(summariseFeatures(visible)).toEqual({ mapped: 1, medianPrice: 200000, medianEurPerM2: 4000 });
   });
 

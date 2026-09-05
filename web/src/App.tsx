@@ -6,6 +6,7 @@ import {
   filterSales,
   summariseFeatures,
   uniqueTypes,
+  uniqueYears,
   type AreaBand,
   type SaleFeature,
   type SalesGeoJSON,
@@ -32,6 +33,7 @@ export default function App() {
   const [summary, setSummary] = useState<WebSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [types, setTypes] = useState<string[]>([]);
+  const [years, setYears] = useState<number[]>([]);
   const [beds, setBeds] = useState<number | "any">("any");
   const [area, setArea] = useState<AreaBand>("any");
 
@@ -58,6 +60,7 @@ export default function App() {
   }, []);
 
   const typeOptions = useMemo(() => uniqueTypes(features), [features]);
+  const yearOptions = useMemo(() => uniqueYears(features), [features]);
   const bedOptions = useMemo(() => {
     const values = new Set<number>();
     for (const feature of features) {
@@ -67,16 +70,20 @@ export default function App() {
   }, [features]);
 
   const visible = useMemo(
-    () => filterSales(features, { types, beds, area }),
-    [features, types, beds, area],
+    () => filterSales(features, { types, years, beds, area }),
+    [features, types, years, beds, area],
   );
 
   const stats = useMemo(() => summariseFeatures(visible), [visible]);
-  const filtersActive = types.length > 0 || beds !== "any" || area !== "any";
+  const filtersActive = types.length > 0 || years.length > 0 || beds !== "any" || area !== "any";
   const mappedShare = summary && summary.ppr_rows > 0 ? stats.mapped / summary.ppr_rows : null;
 
   function toggleType(type: string) {
     setTypes((current) => (current.includes(type) ? current.filter((item) => item !== type) : [...current, type]));
+  }
+
+  function toggleYear(year: number) {
+    setYears((current) => (current.includes(year) ? current.filter((item) => item !== year) : [...current, year]));
   }
 
   return (
@@ -135,58 +142,58 @@ export default function App() {
             Showing {visible.length} of {features.length} mapped sales
             {filtersActive ? "; the map and the stats above follow these filters" : ""}. Source data is unchanged.
           </p>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div className="mt-4 space-y-4">
             <fieldset>
-              <legend className="mb-1.5 text-xs font-medium text-zinc-500">House type</legend>
+              <legend className="mb-1.5 text-xs font-medium text-zinc-500">Year of sale</legend>
               <div className="flex flex-wrap gap-2">
-                {typeOptions.map((type) => {
-                  const active = types.includes(type);
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => toggleType(type)}
-                      className={`rounded-[8px] border px-3 py-1.5 text-sm font-medium transition-colors ${
-                        active
-                          ? "border-blue-500 bg-white text-[#2563eb] shadow-sm dark:bg-zinc-800 dark:text-[#60a5fa]"
-                          : "border-zinc-200 bg-zinc-100 text-zinc-600 hover:text-zinc-900 dark:border-zinc-800 dark:bg-[#0c0c0f] dark:text-zinc-400"
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  );
-                })}
+                {yearOptions.map((year) => (
+                  <Chip key={year} active={years.includes(year)} onClick={() => toggleYear(year)}>
+                    {year}
+                  </Chip>
+                ))}
               </div>
             </fieldset>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-zinc-500">Bedrooms</span>
-              <select
-                value={beds === "any" ? "any" : String(beds)}
-                onChange={(event) => setBeds(event.target.value === "any" ? "any" : Number(event.target.value))}
-                className="w-full rounded-[8px] border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 dark:border-zinc-800 dark:bg-[#09090b] dark:text-zinc-100"
-              >
-                <option value="any">Any</option>
-                {bedOptions.map((count) => (
-                  <option key={count} value={count}>
-                    {count} bed{count === 1 ? "" : "s"}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-zinc-500">Floor area</span>
-              <select
-                value={area}
-                onChange={(event) => setArea(event.target.value as AreaBand)}
-                className="w-full rounded-[8px] border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 dark:border-zinc-800 dark:bg-[#09090b] dark:text-zinc-100"
-              >
-                {AREA_BANDS.map((band) => (
-                  <option key={band.id} value={band.id}>
-                    {band.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="grid gap-4 md:grid-cols-3">
+              <fieldset>
+                <legend className="mb-1.5 text-xs font-medium text-zinc-500">House type</legend>
+                <div className="flex flex-wrap gap-2">
+                  {typeOptions.map((type) => (
+                    <Chip key={type} active={types.includes(type)} onClick={() => toggleType(type)}>
+                      {type}
+                    </Chip>
+                  ))}
+                </div>
+              </fieldset>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-zinc-500">Bedrooms</span>
+                <select
+                  value={beds === "any" ? "any" : String(beds)}
+                  onChange={(event) => setBeds(event.target.value === "any" ? "any" : Number(event.target.value))}
+                  className="w-full rounded-[8px] border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 dark:border-zinc-800 dark:bg-[#09090b] dark:text-zinc-100"
+                >
+                  <option value="any">Any</option>
+                  {bedOptions.map((count) => (
+                    <option key={count} value={count}>
+                      {count} bed{count === 1 ? "" : "s"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-zinc-500">Floor area</span>
+                <select
+                  value={area}
+                  onChange={(event) => setArea(event.target.value as AreaBand)}
+                  className="w-full rounded-[8px] border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 dark:border-zinc-800 dark:bg-[#09090b] dark:text-zinc-100"
+                >
+                  {AREA_BANDS.map((band) => (
+                    <option key={band.id} value={band.id}>
+                      {band.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
         </section>
 
@@ -199,6 +206,30 @@ export default function App() {
         </section>
       </div>
     </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-[8px] border px-3 py-1.5 text-sm font-medium transition-colors ${
+        active
+          ? "border-blue-500 bg-white text-[#2563eb] shadow-sm dark:bg-zinc-800 dark:text-[#60a5fa]"
+          : "border-zinc-200 bg-zinc-100 text-zinc-600 hover:text-zinc-900 dark:border-zinc-800 dark:bg-[#0c0c0f] dark:text-zinc-400"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

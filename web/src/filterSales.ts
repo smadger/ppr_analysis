@@ -50,9 +50,16 @@ export type AreaBand = (typeof AREA_BANDS)[number]["id"];
 
 export type SaleFilters = {
   types: string[];
+  years: number[];
   beds: number | "any";
   area: AreaBand;
 };
+
+export function saleYear(saleDate: string | null): number | null {
+  if (!saleDate) return null;
+  const year = Number(saleDate.slice(0, 4));
+  return Number.isInteger(year) && year >= 1900 && year <= 2100 ? year : null;
+}
 
 export function uniqueTypes(features: SaleFeature[]): string[] {
   const values = new Set<string>();
@@ -61,6 +68,15 @@ export function uniqueTypes(features: SaleFeature[]): string[] {
     values.add(type);
   }
   return [...values].sort((a, b) => a.localeCompare(b));
+}
+
+export function uniqueYears(features: SaleFeature[]): number[] {
+  const values = new Set<number>();
+  for (const feature of features) {
+    const year = saleYear(feature.properties.sale_date);
+    if (year != null) values.add(year);
+  }
+  return [...values].sort((a, b) => b - a);
 }
 
 function matchesArea(areaM2: number | null, band: AreaBand): boolean {
@@ -74,10 +90,14 @@ function matchesArea(areaM2: number | null, band: AreaBand): boolean {
 
 export function filterSales(features: SaleFeature[], filters: SaleFilters): SaleFeature[] {
   return features.filter((feature) => {
-    const { property_type, beds, floor_area_m2 } = feature.properties;
+    const { property_type, beds, floor_area_m2, sale_date } = feature.properties;
     if (filters.types.length > 0) {
       const type = property_type?.trim() || "Unknown";
       if (!filters.types.includes(type)) return false;
+    }
+    if (filters.years.length > 0) {
+      const year = saleYear(sale_date);
+      if (year == null || !filters.years.includes(year)) return false;
     }
     if (filters.beds !== "any") {
       if (beds !== filters.beds) return false;
