@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  font-family: "DM Sans", sans-serif;
+}
+
+.font-data {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.leaflet-container {
+  font-family: "DM Sans", sans-serif;
+  background: #18181b;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #0c0c0f;
+  color: #fafafa;
+  border: 1px solid #27272a;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #0c0c0f;
+  color: #fafafa;
+}
+
+html:not(.dark) .leaflet-popup-content-wrapper,
+html:not(.dark) .leaflet-popup-tip {
+  background: #ffffff;
+  color: #09090b;
+  border-color: #e4e4e7;
+}
+
+.leaflet-popup-content p {
+  margin: 0;
+}
+
+/* Outranks Leaflet's own `.leaflet-container a` link colour. */
+.leaflet-container a.daft-link,
+.leaflet-container a.daft-link:hover {
+  color: #ffffff;
+  text-decoration: none;
+}

@@ -1,0 +1,11 @@
+{
+  "ppr_rows": 1632,
+  "mapped_rows": 1264,
+  "unmapped_rows": 368,
+  "mapped_share": 0.7745098039215687,
+  "match_rate_exact_or_high": 0.9307598039215687,
+  "median_price": 335000.0,
+  "median_eur_per_m2": 3266.4233576642337,
+  "median_sale_vs_asking": 0.06742424242424239,
+  "coverage_note": "Daft attributes exist only for homes listed (or otherwise sourced) on Daft; unmatched PPR rows are expected."
+}
