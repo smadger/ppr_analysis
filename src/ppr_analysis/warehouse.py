@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS daft_listings (
     property_type TEXT,
     floor_area_m2 REAL,
     ber TEXT,
-    agent TEXT
+    agent TEXT,
+    source TEXT NOT NULL DEFAULT 'bulk'
 );
 
 CREATE TABLE IF NOT EXISTS matches (
@@ -68,7 +69,52 @@ def connect(db_path: Path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    _migrate(conn)
     return conn
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    daft_cols = {row[1] for row in conn.execute("PRAGMA table_info(daft_listings)")}
+    if "source" not in daft_cols:
+        conn.execute("ALTER TABLE daft_listings ADD COLUMN source TEXT NOT NULL DEFAULT 'bulk'")
+        conn.commit()
+
+
+def prune_orphan_matches(conn: sqlite3.Connection) -> int:
+    """Reset matches whose listing was removed so exports do not keep exact/high with empty Daft attrs."""
+    cursor = conn.execute(
+        """
+        UPDATE matches
+        SET listing_id = NULL,
+            match_status = 'unmatched',
+            match_score = 0,
+            daft_url = NULL
+        WHERE listing_id IS NOT NULL
+          AND listing_id NOT IN (SELECT listing_id FROM daft_listings)
+        """
+    )
+    return cursor.rowcount
+
+
+def replace_bulk_daft_listings(conn: sqlite3.Connection, rows: list[dict], columns: list[str]) -> int:
+    """Replace bulk crawl rows, keep fallback-search listings, then drop orphan matches."""
+    bulk_ids = [row["listing_id"] for row in rows]
+    conn.execute("DELETE FROM daft_listings WHERE COALESCE(source, 'bulk') != 'fallback'")
+    if bulk_ids:
+        placeholders = ", ".join("?" * len(bulk_ids))
+        conn.execute(
+            f"DELETE FROM daft_listings WHERE listing_id IN ({placeholders})",
+            bulk_ids,
+        )
+    if rows:
+        insert_cols = columns + ["source"]
+        col_sql = ", ".join(insert_cols)
+        placeholders = ", ".join("?" * len(insert_cols))
+        payload = [tuple(row.get(col) for col in columns) + ("bulk",) for row in rows]
+        conn.executemany(f"INSERT INTO daft_listings ({col_sql}) VALUES ({placeholders})", payload)
+    prune_orphan_matches(conn)
+    conn.commit()
+    return len(payload) if rows else 0
 
 
 def replace_table(conn: sqlite3.Connection, table: str, rows: list[dict], columns: list[str]) -> int:

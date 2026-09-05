@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from ppr_analysis.config import DAFT_GATEWAY_URL
 from ppr_analysis.daft import ingest_daft, is_meath_listing, listings_from_html
+from ppr_analysis.warehouse import connect
 from tests.conftest import FakeClient, daft_gateway_page, daft_html_page
 
 
@@ -81,3 +83,68 @@ def test_ingest_retries_on_429(tmp_path: Path) -> None:
     assert stats["network_calls"] == 2
     assert sleeps == [1.5, 2.0]
     assert [item[1]["paging"]["from"] for item in client.posts] == ["0", "20", "20"]
+
+
+def test_reingest_preserves_fallback_and_prunes_orphan_matches(tmp_path: Path) -> None:
+    db_path = tmp_path / "warehouse.sqlite"
+    ingest_daft(
+        db_path,
+        delay_seconds=0,
+        client=FakeClient(
+            html_by_url={
+                "from:0": daft_gateway_page(1),
+                "from:20": daft_gateway_page(2),
+            }
+        ),
+        sleeper=lambda _delay: None,
+    )
+    conn = connect(db_path)
+    conn.execute(
+        """
+        INSERT INTO ppr_sales (
+            ppr_id, sale_date, address, county, price, not_full_market_price, vat_exclusive
+        ) VALUES
+            ('p1', '2024-07-14', '12 Barley Cove', 'Louth', 385000, 0, 0),
+            ('p2', '2024-06-15', '8 Westcourt', 'Louth', 310000, 0, 0)
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO daft_listings (listing_id, address, source)
+        VALUES ('999001', '8 Westcourt, Drogheda, Louth', 'fallback')
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO matches (ppr_id, listing_id, match_status, match_score, daft_url)
+        VALUES
+            ('p1', '6517522', 'exact', 100, 'https://www.daft.ie/a'),
+            ('p2', '999001', 'high', 90, 'https://www.daft.ie/b')
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    ingest_daft(
+        db_path,
+        delay_seconds=0,
+        refresh=True,
+        client=FakeClient(
+            html_by_url={
+                "from:0": json.dumps(
+                    {"listings": [], "paging": {"currentPage": 1, "totalPages": 1}}
+                )
+            }
+        ),
+        sleeper=lambda _delay: None,
+    )
+    conn = connect(db_path)
+    listing_ids = {row["listing_id"] for row in conn.execute("SELECT listing_id FROM daft_listings")}
+    assert listing_ids == {"999001"}
+    orphan = conn.execute("SELECT match_status, listing_id FROM matches WHERE ppr_id = 'p1'").fetchone()
+    assert orphan["match_status"] == "unmatched"
+    assert orphan["listing_id"] is None
+    kept = conn.execute("SELECT match_status, listing_id FROM matches WHERE ppr_id = 'p2'").fetchone()
+    assert kept["match_status"] == "high"
+    assert kept["listing_id"] == "999001"
+    conn.close()

@@ -245,10 +245,11 @@ def run_fallback_search(db_path: Path, fetcher: CachedFetcher, location: str = c
                 new_rows.append(listing)
                 existing.add(listing["listing_id"])
     if new_rows:
-        placeholders = ", ".join("?" * len(DAFT_COLUMNS))
+        insert_cols = DAFT_COLUMNS + ["source"]
+        placeholders = ", ".join("?" * len(insert_cols))
         conn.executemany(
-            f"INSERT INTO daft_listings ({', '.join(DAFT_COLUMNS)}) VALUES ({placeholders})",
-            [tuple(row.get(col) for col in DAFT_COLUMNS) for row in new_rows],
+            f"INSERT INTO daft_listings ({', '.join(insert_cols)}) VALUES ({placeholders})",
+            [tuple(row.get(col) for col in DAFT_COLUMNS) + ("fallback",) for row in new_rows],
         )
         conn.commit()
     return len(new_rows)

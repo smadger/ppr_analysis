@@ -86,3 +86,35 @@ export function filterSales(features: SaleFeature[], filters: SaleFilters): Sale
     return true;
   });
 }
+
+export type FeatureStats = {
+  mapped: number;
+  medianPrice: number | null;
+  medianEurPerM2: number | null;
+};
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+// Market stats exclude not-full-market-price sales, matching summarise() in export.py.
+function fullMarketValues(features: SaleFeature[], pick: (props: SaleProperties) => number | null): number[] {
+  const values: number[] = [];
+  for (const { properties } of features) {
+    if (properties.not_full_market_price !== 0) continue;
+    const value = pick(properties);
+    if (value != null && Number.isFinite(value)) values.push(value);
+  }
+  return values;
+}
+
+export function summariseFeatures(features: SaleFeature[]): FeatureStats {
+  return {
+    mapped: features.length,
+    medianPrice: median(fullMarketValues(features, (props) => props.price)),
+    medianEurPerM2: median(fullMarketValues(features, (props) => props.eur_per_m2)),
+  };
+}

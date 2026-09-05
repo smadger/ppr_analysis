@@ -15,7 +15,7 @@ import httpx
 
 from ppr_analysis import config
 from ppr_analysis.parse import parse_count, parse_floor_area_m2, parse_irish_date, parse_price
-from ppr_analysis.warehouse import connect, get_http_cache, replace_table, upsert_http_cache
+from ppr_analysis.warehouse import connect, get_http_cache, replace_bulk_daft_listings, upsert_http_cache
 
 LOGGER = logging.getLogger(__name__)
 
@@ -257,7 +257,7 @@ def ingest_daft(
             from_offset = int(next_from)
         # de-duplicate by listing_id, last write wins
         unique = {row["listing_id"]: row for row in kept}
-        count = replace_table(conn, "daft_listings", list(unique.values()), DAFT_COLUMNS)
+        count = replace_bulk_daft_listings(conn, list(unique.values()), DAFT_COLUMNS)
     finally:
         conn.close()
         if close_http:

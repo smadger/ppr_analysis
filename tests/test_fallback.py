@@ -48,6 +48,9 @@ def test_fallback_search_inserts_new_listing(tmp_path: Path) -> None:
     added = run_fallback_search(db_path, fetcher)
     assert added == 1
     assert client.posts and client.posts[0][0] == DAFT_GATEWAY_URL
-    row = conn.execute("SELECT address FROM daft_listings WHERE listing_id = '999001'").fetchone()
+    row = conn.execute(
+        "SELECT address, source FROM daft_listings WHERE listing_id = '999001'"
+    ).fetchone()
     assert row["address"].startswith("8 Westcourt")
+    assert row["source"] == "fallback"
     conn.close()

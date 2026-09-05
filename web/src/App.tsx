@@ -4,6 +4,7 @@ import SalesMap from "./SalesMap";
 import {
   AREA_BANDS,
   filterSales,
+  summariseFeatures,
   uniqueTypes,
   type AreaBand,
   type SaleFeature,
@@ -70,6 +71,10 @@ export default function App() {
     [features, types, beds, area],
   );
 
+  const stats = useMemo(() => summariseFeatures(visible), [visible]);
+  const filtersActive = types.length > 0 || beds !== "any" || area !== "any";
+  const mappedShare = summary && summary.ppr_rows > 0 ? stats.mapped / summary.ppr_rows : null;
+
   function toggleType(type: string) {
     setTypes((current) => (current.includes(type) ? current.filter((item) => item !== type) : [...current, type]));
   }
@@ -103,21 +108,32 @@ export default function App() {
         ) : null}
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <Kpi icon={<Home className="h-4 w-4" />} label="PPR sales" value={summary ? String(summary.ppr_rows) : "—"} />
+          <Kpi
+            icon={<Home className="h-4 w-4" />}
+            label="PPR sales"
+            value={summary ? String(summary.ppr_rows) : "—"}
+            hint="All Drogheda rows, unfiltered"
+          />
           <Kpi
             icon={<MapPin className="h-4 w-4" />}
             label="On the map"
-            value={summary ? String(summary.mapped_rows) : "—"}
-            hint={summary ? pct(summary.mapped_share) : undefined}
+            value={summary ? String(stats.mapped) : "—"}
+            hint={mappedShare == null ? undefined : `${pct(mappedShare)} of PPR sales`}
           />
-          <Kpi icon={<TrendingUp className="h-4 w-4" />} label="Median price" value={euro(summary?.median_price ?? null)} />
-          <Kpi label="Median €/m²" value={euro(summary?.median_eur_per_m2 ?? null)} hint="Full-market sales" />
+          <Kpi
+            icon={<TrendingUp className="h-4 w-4" />}
+            label="Median price"
+            value={euro(stats.medianPrice)}
+            hint="Full-market sales on the map"
+          />
+          <Kpi label="Median €/m²" value={euro(stats.medianEurPerM2)} hint="Full-market sales on the map" />
         </section>
 
         <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-[#0c0c0f]">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Filters</h2>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Showing {visible.length} of {features.length} mapped sales. Source data is unchanged.
+            Showing {visible.length} of {features.length} mapped sales
+            {filtersActive ? "; the map and the stats above follow these filters" : ""}. Source data is unchanged.
           </p>
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <fieldset>
